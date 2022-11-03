@@ -3,11 +3,9 @@ import React from "react";
 import { v4 } from "uuid";
 import { build, fake } from "@jackfranklin/test-data-bot";
 import { Button, Group, Text, TextInput } from "@mantine/core";
-import { createMachine, forwardTo, send } from "xstate";
 import { createModel } from "xstate/lib/model";
 import { useMachine } from "@xstate/react";
 import { z } from "zod";
-import produce from "immer";
 
 const Parsers = {
   Authorize: z.object({
@@ -61,6 +59,15 @@ const model = createModel(
     },
   }
 );
+
+const Req = {
+  Authorize: (messageId: string, payload: { idTag: string }) => [
+    2,
+    messageId,
+    "Authorize",
+    payload,
+  ],
+};
 
 const messageTypeCache = new Map<string, ResponseType>();
 
@@ -126,15 +133,9 @@ const machine = model.createMachine(
         if (event.type !== "swipe_card") {
           return context;
         }
-        const messageType = "Authorize";
-        messageTypeCache.set(event.messageId, messageType);
+        messageTypeCache.set(event.messageId, "Authorize");
         context.webSocket.send(
-          JSON.stringify([
-            2,
-            event.messageId,
-            messageType,
-            { idTag: event.idTag },
-          ])
+          JSON.stringify(Req.Authorize(event.messageId, { idTag: event.idTag }))
         );
         return context;
       }),
@@ -161,7 +162,7 @@ function App() {
 
 function Machine({ webSocket }: { webSocket: WebSocket }) {
   const [state, send] = useMachine(machine, { context: { webSocket } });
-  const [idTag, setIdTag] = React.useState("");
+  const [idTag, setIdTag] = React.useState("valid_tag_1");
 
   return (
     <div>
